@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>アラーム時計</title>
+    <!-- Materialize CSS & Icons -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/css/materialize.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <style>
+        body { text-align: center; margin-top: 50px; }
+        .time-display { font-size: 3rem; margin-top: 20px; }
+        .alarm-list { margin-top: 20px; text-align: left; }
+        .alarm-item { display: flex; justify-content: space-between; align-items: center; padding: 10px; border-bottom: 1px solid #ddd; }
+    </style>
+</head>
+<body>
+
+    <!-- ナビゲーションバー -->
+    <nav>
+        <div class="nav-wrapper teal">
+            <a href="#" class="brand-logo center">アラーム時計</a>
+        </div>
+    </nav>
+
+    <!-- 現在時刻表示 -->
+    <div class="container">
+        <div class="time-display" id="current-time">00:00:00</div>
+
+        <!-- アラーム追加 -->
+        <div class="row">
+            <div class="input-field col s9">
+                <input type="text" id="alarm-time" class="timepicker">
+                <label for="alarm-time">アラーム時間を設定</label>
+            </div>
+            <div class="col s3">
+                <button class="btn-floating btn-large waves-effect waves-light teal" id="add-alarm">
+                    <i class="material-icons">add</i>
+                </button>
+            </div>
+        </div>
+
+        <!-- 設定済みアラーム一覧 -->
+        <ul class="collection alarm-list" id="alarm-list">
+            <li class="collection-item">設定したアラームが表示されます</li>
+        </ul>
+    </div>
+
+    <!-- アラーム音 -->
+    <audio id="alarm-sound" src="alarm.m4r" preload="auto"></audio>
+
+    <!-- JavaScript (Materialize & Custom) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/js/materialize.min.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // 通知の許可をリクエスト
+            if ('Notification' in window) {
+                Notification.requestPermission().then(permission => {
+                    if (permission === 'granted') {
+                        console.log('通知が許可されました');
+                    } else {
+                        console.log('通知が拒否されました');
+                    }
+                });
+            }
+
+            // 現在時刻を表示
+            function updateClock() {
+                const now = new Date();
+                const hours = String(now.getHours()).padStart(2, '0');
+                const minutes = String(now.getMinutes()).padStart(2, '0');
+                const seconds = String(now.getSeconds()).padStart(2, '0');
+                document.getElementById('current-time').textContent = `${hours}:${minutes}:${seconds}`;
+            }
+            setInterval(updateClock, 1000);
+            updateClock();
+
+            // Materialize Time Picker 初期化
+            const elems = document.querySelectorAll('.timepicker');
+            M.Timepicker.init(elems, { twelveHour: false });
+
+            let alarms = [];
+            const alarmSound = document.getElementById('alarm-sound');
+            const alarmList = document.getElementById('alarm-list');
+
+            // アラーム追加
+            document.getElementById('add-alarm').addEventListener('click', function() {
+                const timeInput = document.getElementById('alarm-time').value;
+                if (timeInput) {
+                    alarms.push(timeInput);
+                    updateAlarmList();
+                    M.toast({html: `アラーム追加: ${timeInput}`, classes: 'teal'});
+                }
+            });
+
+            // アラームリストを更新
+            function updateAlarmList() {
+                alarmList.innerHTML = ''; // 一旦リストをクリア
+                alarms.forEach((time, index) => {
+                    const listItem = document.createElement('li');
+                    listItem.className = 'collection-item alarm-item';
+                    listItem.innerHTML = `
+                        <span>${time}</span>
+                        <button class="btn btn-small red remove-alarm" data-index="${index}">
+                            <i class="material-icons">delete</i>
+                        </button>
+                    `;
+                    alarmList.appendChild(listItem);
+                });
+
+                // 削除ボタンのイベント登録
+                document.querySelectorAll('.remove-alarm').forEach(button => {
+                    button.addEventListener('click', function() {
+                        const index = this.getAttribute('data-index');
+                        alarms.splice(index, 1);
+                        updateAlarmList();
+                        M.toast({html: 'アラーム削除', classes: 'red'});
+                    });
+                });
+            }
+
+            // アラームチェック
+            setInterval(() => {
+                const now = new Date();
+                const currentTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+
+                alarms.forEach((time, index) => {
+                    if (currentTime === time) {
+                        M.toast({html: '⏰ アラーム時間です！', classes: 'red'});
+
+                        // 通知を送信
+                        if ('Notification' in window && Notification.permission === 'granted') {
+                            new Notification('⏰ アラーム', {
+                                body: `アラーム時間: ${time}`,
+                                icon: 'https://cdn-icons-png.flaticon.com/512/1828/1828765.png' // アラームアイコン（任意）
+                            });
+                        }
+
+                        // アラーム音を再生
+                        alarmSound.play().catch(error => {
+                            console.error('アラーム音の再生に失敗:', error);
+                            M.toast({html: '🔇 アラーム音を再生できませんでした', classes: 'red'});
+                        });
+
+                        alarms.splice(index, 1); // 鳴ったアラームは削除
+                        updateAlarmList();
+                    }
+                });
+            }, 1000);
+        });
+    </script>
+
+</body>
+</html>
